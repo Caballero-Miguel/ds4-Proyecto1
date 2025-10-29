@@ -366,7 +366,7 @@
             this.Controls.Add(this.btnEliminarCaracter);
             this.Controls.Add(this.txtTablero);
             this.Name = "Form1";
-            this.Text = "Calculadora";
+            this.Text = "Form1";
             this.ResumeLayout(false);
             this.PerformLayout();
 

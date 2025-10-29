@@ -82,9 +82,10 @@ namespace AppCalculadora
         {
             Button btn = (Button)sender;
 
-            if (txtTablero.Text.EndsWith("+") || txtTablero.Text.EndsWith("-") ||   //vita poner dos operadores seguidos
+            if (txtTablero.Text.EndsWith("+") || txtTablero.Text.EndsWith("-") ||   //evita poner dos operadores seguidos
                 txtTablero.Text.EndsWith("*") || txtTablero.Text.EndsWith("/"))     // El metodo EndsWith verifica si el texto en el textbox termina en operador
-
+                return;
+   
                 txtTablero.Text += " " + btn.Text + " ";
         }
 
