@@ -82,11 +82,13 @@ namespace AppCalculadora
         {
             Button btn = (Button)sender;
 
-            if (txtTablero.Text.EndsWith("+") || txtTablero.Text.EndsWith("-") ||   //evita poner dos operadores seguidos
-                txtTablero.Text.EndsWith("*") || txtTablero.Text.EndsWith("/"))     // El metodo EndsWith verifica si el texto en el textbox termina en operador
+            // No permitir operador si el último carácter es otro operador
+            if (txtTablero.Text.EndsWith("+") || txtTablero.Text.EndsWith("-") ||
+                txtTablero.Text.EndsWith("*") || txtTablero.Text.EndsWith("/"))
                 return;
-   
-                txtTablero.Text += " " + btn.Text + " ";
+
+            txtTablero.Text += " " + btn.Text + " ";
+            operacionPresionada = true;
         }
 
         //Soluciona expresión simple.
@@ -218,10 +220,39 @@ namespace AppCalculadora
         //Cambiar signo (+/-)
         private void btnSigno_Click(object sender, EventArgs e)
         {
-            if (txtTablero.Text.StartsWith("-"))
-                txtTablero.Text = txtTablero.Text.Substring(1);     //elimina el primer caracter
-            else if (txtTablero.Text != "0")                        //Si no es cero, agrega el signo negativo
-                txtTablero.Text = "-" + txtTablero.Text;
+            string texto = txtTablero.Text;
+
+            if (string.IsNullOrEmpty(texto) || texto == "0")        //Tablero vacío o cero
+            {
+                txtTablero.Text = "-";
+                return;
+            }
+    
+            string[] partes = texto.Split(' ');                     // cambia signo, Si ya hay un cálculo en progreso - negar el último término
+            string ultimoTermino = partes[partes.Length - 1];
+
+            
+            if (double.TryParse(ultimoTermino, out double numero))  // Si el último término es un número, cambia su signo
+            {
+                partes[partes.Length - 1] = (-numero).ToString();
+                txtTablero.Text = string.Join(" ", partes);
+            }
+            
+            else if (ultimoTermino == "(")                          // Si el último término es un paréntesis abierto, prepara número negativo
+            {
+                txtTablero.Text += "-";
+            }
+            
+            else if (texto.EndsWith("+") || texto.EndsWith("-") ||                          // Si el último carácter es un operador, preparar número negativo
+                     texto.EndsWith("*") || texto.EndsWith("/") || texto.EndsWith(" "))
+            {
+                txtTablero.Text += "-";
+            }
+
+            else                                                    // En otros casos, agregar operador de resta con número negativo
+            {
+                txtTablero.Text += " -";
+            }
         }
 
         // Cuadrado (x²)
