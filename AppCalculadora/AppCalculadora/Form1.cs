@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.Windows.Forms;
@@ -18,9 +19,7 @@ namespace AppCalculadora
         public Form1()
         {
             InitializeComponent();
-
-            // Asignar eventos a todos los botones numéricos y operadores
-            AsignarEventos();
+            AsignarEventos();            // Asignar eventos a todos los botones numéricos y operadores
         }
 
         //Asignando eventos comunes para números y operadores
@@ -44,12 +43,26 @@ namespace AppCalculadora
             btnRestar.Click += btnOperador_Click;
             btnMultiplicar.Click += btnOperador_Click;
             btnDividir.Click += btnOperador_Click;
+
+            // Paréntesis
+            btnAbrirParentesis.Click += btnParentesis_Click;
+            btnCerrarParentesis.Click += btnParentesis_Click;
         }
+
+        private void btnParentesis_Click(object sender, EventArgs e)
+        {
+            if (txtTablero.Text == "0")
+                txtTablero.Clear();
+
+            Button btn = (Button)sender;    //Identifica el botón presionado 
+            txtTablero.Text += btn.Text;
+        }
+
 
         //Números y punto
         private void btnNumero_Click(object sender, EventArgs e)
         {
-            if (txtTablero.Text == "0" || operacionPresionada)
+            if (txtTablero.Text == "0")
                 txtTablero.Clear();
 
             operacionPresionada = false;
@@ -68,40 +81,124 @@ namespace AppCalculadora
         private void btnOperador_Click(object sender, EventArgs e)
         {
             Button btn = (Button)sender;
-            operacion = btn.Text;
-            valorActual = double.Parse(txtTablero.Text);
-            operacionPresionada = true;
+
+            if (txtTablero.Text.EndsWith("+") || txtTablero.Text.EndsWith("-") ||   //vita poner dos operadores seguidos
+                txtTablero.Text.EndsWith("*") || txtTablero.Text.EndsWith("/"))     // El metodo EndsWith verifica si el texto en el textbox termina en operador
+
+                txtTablero.Text += " " + btn.Text + " ";
+        }
+
+        //Soluciona expresión simple.
+        private double ResolverExpresionSimple(string expresion)
+        {
+            string[] partes = expresion.Split(' ');         //El metodo Split divide la cadena en partes usando el espacio como separador
+
+            if (partes.Length < 3)                          //Verifica si hay 3 o más partes (número operador número) y si no, convierte el único número (si es válido) y lo retorna.
+            {
+                double unico;
+                if (double.TryParse(expresion, out unico))
+                    return unico;
+                return 0;
+            }
+
+            List<string> lista = new List<string>(partes);  //Convierte el arreglo(partes) en una lista para facilitar la manipulación
+
+            for (int i = 0; i < lista.Count; i++) //1ro. Multiplicación y división
+            {
+                if (lista[i] == "*" || lista[i] == "/")
+                {
+                    double a = double.Parse(lista[i - 1]);
+                    double b = double.Parse(lista[i + 1]);
+                    double resultado = 0;
+
+                    if (lista[i] == "*")
+                        resultado = a * b;
+                    else
+                    {
+                        if (b == 0)
+                        {
+                            MessageBox.Show("No se puede dividir entre cero");
+                            return 0;
+                        }
+                        resultado = a / b;
+                    }
+
+                    lista[i - 1] = resultado.ToString();
+                    lista.RemoveAt(i);
+                    lista.RemoveAt(i);
+                    i--;
+                }
+            }
+
+
+            for (int i = 0; i < lista.Count; i++) //2do. Suma y resta
+            {
+                if (lista[i] == "+" || lista[i] == "-")
+                {
+                    double a = double.Parse(lista[i - 1]);
+                    double b = double.Parse(lista[i + 1]);
+                    double resultado = (lista[i] == "+") ? a + b : a - b; // Verifica(?), si el valor del indice actual es "+", si, si Suma si no(:) Resta.
+
+                    lista[i - 1] = resultado.ToString();
+                    lista.RemoveAt(i);
+                    lista.RemoveAt(i);
+                    i--;
+                }
+            }
+
+            return double.Parse(lista[0]); // Resultado final
         }
 
         //Botón igual (=)
         private void btnIgual_Click(object sender, EventArgs e)
         {
-            double segundoValor = double.Parse(txtTablero.Text);
-            double resultado = 0;
+            string expresionOriginal = txtTablero.Text.Trim();      //Guardar la expresión original para el historial
+            string expresion = expresionOriginal;
 
-            switch (operacion)
+            if (string.IsNullOrEmpty(expresion))
             {
-                case "+": resultado = valorActual + segundoValor; break;
-                case "-": resultado = valorActual - segundoValor; break;
-                case "*": resultado = valorActual * segundoValor; break;
-                case "/":
-                    if (segundoValor == 0)
-                    {
-                        MessageBox.Show("No se puede dividir entre cero");
-                        return;
-                    }
-                    resultado = valorActual / segundoValor;
-                    break;
-                default:
-                    resultado = segundoValor;
-                    break;
+                MessageBox.Show("Expresión vacía");
+                return;
             }
 
-            txtTablero.Text = resultado.ToString();
-            GuardarOperacion(valorActual, operacion, segundoValor, resultado);
-            valorActual = resultado;
-            operacion = "";
+            while (expresion.Contains("("))                         //Resuelve todos los paréntesis (desde el más interno al externo) mientras haya paréntesis abiertos
+            {
+                int fin = expresion.IndexOf(")");
+                if (fin == -1)
+                {
+                    MessageBox.Show("Falta cerrar un paréntesis");
+                    return;
+                }
+
+                int inicio = expresion.LastIndexOf("(", fin);
+                if (inicio == -1)
+                {
+                    MessageBox.Show("Falta abrir un paréntesis");
+                    return;
+                }
+
+
+                string dentro = expresion.Substring(inicio + 1, fin - inicio - 1);      // Extraer la parte interna entre paréntesis
+
+
+                double resultadoDentro = ResolverExpresionSimple(dentro);               // Resolver solo lo de adentro
+
+
+                expresion = expresion.Substring(0, inicio) + resultadoDentro.ToString() + expresion.Substring(fin + 1); // Reemplazar ( ... ) por el resultado
+            }
+
+
+            double final = ResolverExpresionSimple(expresion);
+
+
+            txtTablero.Text = final.ToString();                                         // Mostra el resultado en el tablero(TextBox)
+
+            string resultadoGuardar = (final % 1 == 0) ? final.ToString("0") : final.ToString("F4");
+            double resultadoFinal = double.Parse(resultadoGuardar);
+
+            guardarOperacion(expresionOriginal, resultadoFinal);                        //Guardar la operación completa en la BD
         }
+
 
         //CE: limpia entrada actual
         private void btnLimpiarEntrada_Click(object sender, EventArgs e)
@@ -121,24 +218,35 @@ namespace AppCalculadora
         private void btnSigno_Click(object sender, EventArgs e)
         {
             if (txtTablero.Text.StartsWith("-"))
-                txtTablero.Text = txtTablero.Text.Substring(1);
-            else if (txtTablero.Text != "0")
+                txtTablero.Text = txtTablero.Text.Substring(1);     //elimina el primer caracter
+            else if (txtTablero.Text != "0")                        //Si no es cero, agrega el signo negativo
                 txtTablero.Text = "-" + txtTablero.Text;
         }
 
-        //Cuadrado
+        // Cuadrado (x²)
         private void btnExponente_Click(object sender, EventArgs e)
         {
-            double numero = double.Parse(txtTablero.Text);
+            if (!double.TryParse(txtTablero.Text, out double numero))       // Verifica si la entrada es un número válido
+            {
+                MessageBox.Show("Entrada inválida");
+                return;
+            }
+
             double resultado = Math.Pow(numero, 2);
             txtTablero.Text = resultado.ToString();
-            GuardarOperacion(numero, "x²", numero, resultado);
+
+            guardarOperacion($"{numero}²", resultado);
         }
 
-        //Raíz cuadrada
+        // Raíz cuadrada (√x)
         private void btnRaizCuadrada_Click(object sender, EventArgs e)
         {
-            double numero = double.Parse(txtTablero.Text);
+            if (!double.TryParse(txtTablero.Text, out double numero))
+            {
+                MessageBox.Show("Entrada inválida");
+                return;
+            }
+
             if (numero < 0)
             {
                 MessageBox.Show("No se puede sacar raíz de un número negativo");
@@ -147,13 +255,14 @@ namespace AppCalculadora
 
             double resultado = Math.Sqrt(numero);
             txtTablero.Text = resultado.ToString();
-            GuardarOperacion(numero, "√x", numero, resultado);
+
+            guardarOperacion($"√{numero}", resultado);
         }
 
         //Botones especiales
         private void btnPi_Click(object sender, EventArgs e)
         {
-            txtTablero.Text = Math.PI.ToString();
+            txtTablero.Text = Math.PI.ToString("F4");
         }
 
         private void btnEuler_Click(object sender, EventArgs e)
@@ -171,7 +280,8 @@ namespace AppCalculadora
         private void btnEliminarCaracter_Click(object sender, EventArgs e)
         {
             if (txtTablero.Text.Length > 0)
-                txtTablero.Text = txtTablero.Text.Substring(0, txtTablero.Text.Length - 1);
+                txtTablero.Text = txtTablero.Text.Substring(0, txtTablero.Text.Length - 1); // El método Substring elimina el último carácter del tablero, recortando desde el inicio hasta uno antes del final
+
 
             if (txtTablero.Text == "")
                 txtTablero.Text = "0";
@@ -207,15 +317,15 @@ namespace AppCalculadora
             }
             finally
             {
-                if (conexion != null)
-                    conexion.Close();
+                if (conexion != null)   //Verifica si hay una conexión abierta antes de cerrarla
+                    conexion.Close();   //Cierra la conexión
             }
         }
 
         //Guardar operación en la base de datos
-        private void GuardarOperacion(double a, string op, double b, double r)
+        private void guardarOperacion(string expresion, double resultado)
         {
-            string operacionTexto = $"{a} {op} {b} = {r}";
+            string operacionTexto = expresion + " = " + resultado.ToString();
             SqlConnection conexion = new SqlConnection(cadenaConexion);
 
             try
@@ -230,7 +340,7 @@ namespace AppCalculadora
             }
             catch (SqlException ex)
             {
-                MessageBox.Show("Error al guardar: " + ex.Message);
+                MessageBox.Show("Error al guardar en la base de datos: " + ex.Message);
             }
             finally
             {
@@ -238,5 +348,6 @@ namespace AppCalculadora
                     conexion.Close();
             }
         }
+
     }
 }
